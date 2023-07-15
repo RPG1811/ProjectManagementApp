@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, Button } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import firebase from '../firebase';
 
 const ProjectDetailScreen = ({ route }) => {
@@ -8,6 +8,8 @@ const ProjectDetailScreen = ({ route }) => {
   const [tasks, setTasks] = useState([]);
   const [taskStatus, setTaskStatus] = useState({});
   const [hoursWorked, setHoursWorked] = useState({});
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   useEffect(() => {
     const projectRef = firebase.firestore().collection('projects').doc(projectId);
@@ -17,6 +19,8 @@ const ProjectDetailScreen = ({ route }) => {
       setProject(projectData);
       setTasks(projectData.tasks);
       setTaskStatus(projectData.taskStatus);
+      setStartDate(projectData.startDate);
+      setEndDate(projectData.endDate);
     });
 
     return () => unsubscribe();
@@ -51,43 +55,55 @@ const ProjectDetailScreen = ({ route }) => {
   };
 
   const renderTaskItem = ({ item }) => (
-    <View style={styles.taskContainer}>
-      <Text style={styles.taskTitle}>{item.taskName}</Text>
-      <Text style={styles.taskDescription}>{item.taskDescription}</Text>
-      {taskStatus[item.taskId] ? (
+    <TouchableOpacity
+      style={styles.taskContainer}
+      onPress={() => {}}
+      activeOpacity={0.7}
+    >
+      <View style={styles.taskInfoContainer}>
+        <Text style={styles.taskTitle}>{item.name}</Text>
+        <Text style={styles.taskDescription}>{item.description}</Text>
+        <Text style={styles.taskDescription}>Start Date: {item.startDate}</Text>
+        <Text style={styles.taskDescription}>End Date: {item.endDate}</Text>
+        <Text style={styles.taskDescription}>Assigned Member: {item.assignedMember}</Text>
+      </View>
+      {taskStatus && taskStatus[item.taskId] ? (
         <Text style={styles.taskStatus}>Completed</Text>
       ) : (
         <View style={styles.taskCompletionContainer}>
-          <TextInput
-            style={styles.hoursWorkedInput}
-            placeholder="Hours Worked"
-            keyboardType="numeric"
-            onChangeText={(text) => setHoursWorked({ ...hoursWorked, [item.taskId]: text })}
-          />
-          <Button
-            title="Complete Task"
+          <Text style={styles.taskHours}>Hours Worked:</Text>
+          <Text style={styles.taskHoursValue}>{hoursWorked[item.taskId] || 0}</Text>
+          <TouchableOpacity
+            style={styles.completeButton}
             onPress={() => handleTaskCompletion(item.taskId, hoursWorked[item.taskId])}
-          />
+          >
+            <Text style={styles.completeButtonText}>Complete Task</Text>
+          </TouchableOpacity>
         </View>
       )}
-    </View>
+    </TouchableOpacity>
   );
 
   return (
     <View style={styles.container}>
       {project && (
-        <React.Fragment>
-          <Text style={styles.heading}>{project.title}</Text>
-          <Text>Creator: {project.creator}</Text>
+        <View style={styles.projectContainer}>
+          <Text style={styles.projectTitle}>{project.title}</Text>
+          <Text style={styles.projectInfo}>Start Date: {startDate}</Text>
+          <Text style={styles.projectInfo}>End Date: {endDate}</Text>
+
           <Text style={styles.sectionHeading}>Tasks:</Text>
           <FlatList
             data={tasks}
             renderItem={renderTaskItem}
             keyExtractor={(item) => item.taskId}
+            contentContainerStyle={styles.taskListContainer}
+            showsVerticalScrollIndicator={false}
           />
+
           <Text style={styles.sectionHeading}>Total Cost:</Text>
-          <Text style={styles.totalCost}>{calculateTotalCost()}</Text>
-        </React.Fragment>
+          <Text style={styles.totalCost}>$ {calculateTotalCost()}</Text>
+        </View>
       )}
     </View>
   );
@@ -97,11 +113,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+    backgroundColor: '#fff',
   },
-  heading: {
+  projectContainer: {
+    flex: 1,
+  },
+  projectTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 10,
+  },
+  projectInfo: {
+    fontSize: 16,
+    marginBottom: 5,
   },
   sectionHeading: {
     fontSize: 18,
@@ -109,8 +133,17 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 10,
   },
+  taskListContainer: {
+    paddingBottom: 10,
+  },
   taskContainer: {
     marginBottom: 20,
+    padding: 10,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 5,
+  },
+  taskInfoContainer: {
+    marginBottom: 10,
   },
   taskTitle: {
     fontSize: 16,
@@ -120,22 +153,31 @@ const styles = StyleSheet.create({
   taskDescription: {
     marginBottom: 5,
   },
-  taskCompletionContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  hoursWorkedInput: {
-    width: 100,
-    height: 40,
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    paddingHorizontal: 10,
-  },
   taskStatus: {
     color: 'green',
     fontWeight: 'bold',
     marginTop: 5,
+  },
+  taskCompletionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  taskHours: {
+    marginRight: 5,
+  },
+  taskHoursValue: {
+    fontWeight: 'bold',
+  },
+  completeButton: {
+    marginLeft: 'auto',
+    backgroundColor: '#007AFF',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 5,
+  },
+  completeButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
   totalCost: {
     fontWeight: 'bold',
