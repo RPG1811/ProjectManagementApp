@@ -1,4 +1,3 @@
-// ProjectDetailScreen.js
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
@@ -9,9 +8,9 @@ const ProjectDetailScreen = ({ route }) => {
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [hoursWorked, setHoursWorked] = useState({});
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+ 
   const [totalCost, setTotalCost] = useState(0);
+  const [completionDate, setCompletionDate] = useState('');
 
   useEffect(() => {
     const projectRef = firebase.firestore().collection('projects').doc(projectId);
@@ -21,12 +20,12 @@ const ProjectDetailScreen = ({ route }) => {
       setProject(projectData);
       setTasks(projectData.tasks);
 
-      if (projectData.startDate && projectData.endDate) {
-        setStartDate(projectData.startDate.toDate().toISOString());
-        setEndDate(projectData.endDate.toDate().toISOString());
+      
+
+      if (projectData.completed && projectData.completionDateTime) {
+        setCompletionDate(projectData.completionDateTime.toDate().toISOString());
       } else {
-        setStartDate('');
-        setEndDate('');
+        setCompletionDate('');
       }
     });
 
@@ -36,17 +35,17 @@ const ProjectDetailScreen = ({ route }) => {
   useEffect(() => {
     const calculateTotalCost = () => {
       let totalCost = 0;
-  
+
       tasks.forEach((task) => {
         const taskHours = parseFloat(hoursWorked[task.id]) || 0;
         const assignedMember = task.assignedMembers.find((member) => member.email === firebase.auth().currentUser.email);
         const hourlyRate = assignedMember ? assignedMember.hourlyRate : 0;
         totalCost += taskHours * hourlyRate;
       });
-  
+
       return totalCost.toFixed(2);
     };
-  
+
     setTotalCost(calculateTotalCost());
   }, [tasks, hoursWorked]);
 
@@ -54,7 +53,7 @@ const ProjectDetailScreen = ({ route }) => {
     try {
       const projectRef = firebase.firestore().collection('projects').doc(projectId);
       const projectSnapshot = await projectRef.get();
-  
+
       if (projectSnapshot.exists) {
         const projectData = projectSnapshot.data();
         const updatedTasks = projectData.tasks.map((task) => {
@@ -68,24 +67,28 @@ const ProjectDetailScreen = ({ route }) => {
           }
           return task;
         });
-  
+
         // Update tasks array in Firestore
         await projectRef.update({ tasks: updatedTasks });
-  
+
         // Recalculate and update the total cost and total hours worked in Firestore
         const updatedTotalCost = calculateTotalCost(updatedTasks);
         const updatedTotalHoursWorked = calculateTotalHoursWorked(updatedTasks);
         await projectRef.update({ totalCost: updatedTotalCost, totalHoursWorked: updatedTotalHoursWorked });
+
+        // Check if all tasks are completed and update the completion date of the project
+        if (updatedTasks.every((task) => task.completed)) {
+          await projectRef.update({ completed: true, completionDateTime: firebase.firestore.Timestamp.now() });
+        }
       }
     } catch (error) {
       console.log('Error in handleTaskCompletion:', error);
     }
   };
-  
 
   const calculateTotalCost = (tasks) => {
     let totalCost = 0;
-  
+
     tasks.forEach((task) => {
       if (task.completed) {
         const taskHours = parseFloat(task.hoursWorked) || 0;
@@ -94,32 +97,27 @@ const ProjectDetailScreen = ({ route }) => {
         totalCost += taskHours * hourlyRate;
       }
     });
-  
+
     return totalCost.toFixed(2);
   };
-  
+
   const calculateTotalHoursWorked = (tasks) => {
     let totalHoursWorked = 0;
-  
+
     tasks.forEach((task) => {
       if (task.completed) {
         totalHoursWorked += parseFloat(task.hoursWorked) || 0;
       }
     });
-  
+
     return totalHoursWorked;
   };
-  
 
   const renderTaskItem = ({ item }) => {
     const assignedMember = item.assignedMembers.find((member) => member.email === firebase.auth().currentUser.email);
 
     return (
-      <TouchableOpacity
-        style={styles.taskContainer}
-        onPress={() => {}}
-        activeOpacity={0.7}
-      >
+      <TouchableOpacity style={styles.taskContainer} onPress={() => {}} activeOpacity={0.7}>
         <View style={styles.taskInfoContainer}>
           <Text style={styles.taskTitle}>{item.name}</Text>
           <Text style={styles.taskDescription}>{item.description}</Text>
@@ -139,9 +137,7 @@ const ProjectDetailScreen = ({ route }) => {
               style={styles.taskHoursInput}
               keyboardType="numeric"
               value={hoursWorked[item.id] || ''}
-              onChangeText={(text) =>
-                setHoursWorked((prevHoursWorked) => ({ ...prevHoursWorked, [item.id]: text }))
-              }
+              onChangeText={(text) => setHoursWorked((prevHoursWorked) => ({ ...prevHoursWorked, [item.id]: text }))}
             />
             <TouchableOpacity
               style={styles.completeButton}
@@ -161,7 +157,27 @@ const ProjectDetailScreen = ({ route }) => {
         <View style={styles.projectContainer}>
           <Text style={styles.projectTitle}>{project.name}</Text>
           
-          <Text style={styles.projectInfo}>End Date: {endDate}</Text>
+          {completionDate ? (
+            <Text style={styles.projectInfo}>Completion Date: {completionDate}</Text>
+          ) : (
+            <TouchableOpacity
+              style={styles.completeButton}
+              onPress={() =>
+                Alert.alert('Confirm Project Completion', 'Are you sure you want to mark this project as completed?', [
+                  {
+                    text: 'Cancel',
+                    style: 'cancel',
+                  },
+                  {
+                    text: 'Mark as Completed',
+                    onPress: () => handleProjectCompletion(),
+                  },
+                ])
+              }
+            >
+              <Text style={styles.completeButtonText}>Mark as Completed</Text>
+            </TouchableOpacity>
+          )}
 
           <Text style={styles.sectionHeading}>Tasks:</Text>
           <FlatList
@@ -179,8 +195,6 @@ const ProjectDetailScreen = ({ route }) => {
     </View>
   );
 };
-
-// ...Styles
 
 const styles = StyleSheet.create({
   container: {
@@ -246,7 +260,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   completeButton: {
-    marginLeft: 'auto',
+    marginTop: 10,
     backgroundColor: '#007AFF',
     paddingVertical: 5,
     paddingHorizontal: 10,
