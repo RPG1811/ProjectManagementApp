@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import firebase from '../firebase';
 
 const SignupScreen = ({ navigation }) => {
@@ -26,15 +26,19 @@ const SignupScreen = ({ navigation }) => {
       });
   };
 
+  const handleLogin = () => {
+    navigation.navigate('Login');
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>Signup</Text>
-      {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+      <Text style={styles.heading}>Sign up</Text>
       <TextInput
         style={styles.input}
         value={email}
         onChangeText={setEmail}
         placeholder="Email"
+        placeholderTextColor="#888"
         autoCapitalize="none"
       />
       <TextInput
@@ -42,15 +46,16 @@ const SignupScreen = ({ navigation }) => {
         value={password}
         onChangeText={setPassword}
         placeholder="Password"
+        placeholderTextColor="#888"
         secureTextEntry
       />
-      <Button title="Sign up" onPress={handleSignup} />
-      <Text style={styles.text}>Already have an account?</Text>
-      <Button
-        title="Login"
-        onPress={() => navigation.navigate('Login')}
-        color="#007AFF"
-      />
+      {errorMessage ? <Text style={styles.error}>{errorMessage}</Text> : null}
+      <TouchableOpacity style={styles.signupButton} onPress={handleSignup}>
+        <Text style={styles.buttonText}>Sign up</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+        <Text style={styles.loginText}>Already have an account? Login</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -60,31 +65,52 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#fff',
     padding: 20,
-    backgroundColor: '#61dafb',
   },
   heading: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: 'bold',
     marginBottom: 20,
+    color: '#333',
   },
   input: {
-    width: '80%',
-    text: {color: '#000'},
-    height: 40,
-    marginBottom: 10,
-    borderWidth: 3,
-    borderRadius: 20,
+    width: '100%',
     height: 50,
+    marginBottom: 10,
+    borderWidth: 1,
     borderColor: '#ccc',
+    borderRadius: 10,
     paddingHorizontal: 10,
+    fontSize: 16,
+    color: '#000',
   },
   error: {
     color: 'red',
     marginBottom: 10,
   },
-  text: {
+  signupButton: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#007AFF',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  loginButton: {
     marginTop: 10,
+    alignItems: 'center',
+  },
+  loginText: {
+    fontSize: 16,
+    color: '#007AFF',
+    textDecorationLine: 'underline',
+  },
+  buttonText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
 });
 

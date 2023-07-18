@@ -3,13 +3,14 @@ import 'firebase/compat/auth';
 import 'firebase/compat/firestore';
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBxWQZS7iJ-3_1gY6nRltld1iN1Or0WSSM",
-  authDomain: "projectmanagementsystem-adde6.firebaseapp.com",
-  projectId: "projectmanagementsystem-adde6",
-  storageBucket: "projectmanagementsystem-adde6.appspot.com",
-  messagingSenderId: "1072781213410",
-  appId: "1:1072781213410:web:bac9ea75f64c664b7168bb",
-  measurementId: "G-CVBFZC6VMB"
+  apiKey: "AIzaSyA5S9V90vWgtZudPnOgKvKEOQqlvmMiZEo",
+  authDomain: "projectmanagementapp-9d0b0.firebaseapp.com",
+  databaseURL: "https://projectmanagementapp-9d0b0-default-rtdb.firebaseio.com",
+  projectId: "projectmanagementapp-9d0b0",
+  storageBucket: "projectmanagementapp-9d0b0.appspot.com",
+  messagingSenderId: "366611733672",
+  appId: "1:366611733672:web:b12d153c2645c684c8f69d",
+  measurementId: "G-B6BEX2FPD6"
 };
 
 if (!firebaseApp.apps.length) {

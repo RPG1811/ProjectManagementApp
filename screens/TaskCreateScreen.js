@@ -1,15 +1,65 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, Button, StyleSheet, ScrollView } from 'react-native';
 import { nanoid } from 'nanoid/non-secure';
 import firebase from '../firebase';
 
 const TaskCreateScreen = ({ route, navigation }) => {
   const { projectId } = route.params;
+  const [projectName, setProjectName] = useState('');
+  const [members, setMembers] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [taskName, setTaskName] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [taskstartDate, setTaskStartDate] = useState('');
+  const [taskendDate, setTaskEndDate] = useState('');
   const [hourlyRate, setHourlyRate] = useState('');
+  const [taskAssignedMembers, setTaskAssignedMembers] = useState([]);
+  const [taskAssignedMember, setTaskAssignedMember] = useState('');
+  const [prerequisiteTasks, setPrerequisiteTasks] = useState([]);
+  const [availableTasks, setAvailableTasks] = useState([]);
+
+  useEffect(() => {
+    const fetchProjectMembers = async () => {
+      try {
+        const projectRef = firebase.firestore().collection('projects').doc(projectId);
+        const projectSnapshot = await projectRef.get();
+        const projectData = projectSnapshot.data();
+        setMembers(projectData.members || []);
+      } catch (error) {
+        console.log('Error fetching project members:', error);
+      }
+    };
+
+    const fetchAvailableTasks = async () => {
+      try {
+        const projectRef = firebase.firestore().collection('projects').doc(projectId);
+        const tasksSnapshot = await projectRef.collection('tasks').get();
+        const tasks = tasksSnapshot.docs.map((doc) => doc.data());
+        setAvailableTasks(tasks);
+      } catch (error) {
+        console.log('Error fetching available tasks:', error);
+      }
+    };
+
+    fetchProjectMembers();
+    fetchAvailableTasks();
+  }, [projectId]);
+
+  const handleAssignMember = (memberId) => {
+    if (assignedMembers.includes(memberId)) {
+      setAssignedMembers((prevMembers) => prevMembers.filter((member) => member !== memberId));
+    } else {
+      setAssignedMembers((prevMembers) => [...prevMembers, memberId]);
+    }
+  };
+
+  const handlePrerequisiteTaskSelection = (taskId) => {
+    if (prerequisiteTasks.includes(taskId)) {
+      setPrerequisiteTasks((prevTasks) => prevTasks.filter((task) => task !== taskId));
+    } else {
+      setPrerequisiteTasks((prevTasks) => [...prevTasks, taskId]);
+    }
+  };
 
   const handleCreateTask = async () => {
     try {
@@ -24,11 +74,12 @@ const TaskCreateScreen = ({ route, navigation }) => {
         taskDescription,
         startDate,
         endDate,
-        assignedMembers: [],
+        assignedMembers,
         hourlyRate: parseFloat(hourlyRate),
         completed: false,
         completionDateTime: null,
         hoursWorked: 0,
+        prerequisiteTasks,
       };
       await taskRef.add(newTask);
 
@@ -37,6 +88,8 @@ const TaskCreateScreen = ({ route, navigation }) => {
       setStartDate('');
       setEndDate('');
       setHourlyRate('');
+      setAssignedMembers([]);
+      setPrerequisiteTasks([]);
 
       navigation.goBack();
     } catch (error) {
@@ -51,7 +104,7 @@ const TaskCreateScreen = ({ route, navigation }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <Text style={styles.heading}>Create Task</Text>
 
       <TextInput
@@ -93,8 +146,34 @@ const TaskCreateScreen = ({ route, navigation }) => {
         keyboardType="numeric"
       />
 
+      <Text style={styles.label}>Assigned Members:</Text>
+      <View style={styles.memberContainer}>
+        {projectMembers.map((member) => (
+          <View key={member.memberId} style={styles.memberOption}>
+            <Text>{member.email}</Text>
+            <Button
+              title={assignedMembers.includes(member.memberId) ? 'Remove' : 'Add'}
+              onPress={() => handleAssignMember(member.memberId)}
+            />
+          </View>
+        ))}
+      </View>
+
+      <Text style={styles.label}>Prerequisite Tasks:</Text>
+      <View style={styles.taskContainer}>
+        {availableTasks.map((task) => (
+          <View key={task.taskId} style={styles.taskOption}>
+            <Text>{task.taskName}</Text>
+            <Button
+              title={prerequisiteTasks.includes(task.taskId) ? 'Remove' : 'Add'}
+              onPress={() => handlePrerequisiteTaskSelection(task.taskId)}
+            />
+          </View>
+        ))}
+      </View>
+
       <Button title="Create Task" onPress={handleCreateTask} />
-    </View>
+    </ScrollView>
   );
 };
 
@@ -115,6 +194,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ccc',
     paddingHorizontal: 10,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  memberContainer: {
+    marginBottom: 10,
+  },
+  memberOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 5,
+  },
+  taskContainer: {
+    marginBottom: 10,
+  },
+  taskOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 5,
   },
 });
 

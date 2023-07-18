@@ -1,41 +1,107 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, FlatList } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, Button, StyleSheet, KeyboardAvoidingView, ScrollView } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import firebase from '../firebase';
 
 const ProjectCreateScreen = ({ navigation }) => {
-  const [projectTitle, setProjectTitle] = useState('');
+  const [projectName, setProjectName] = useState('');
+  const [members, setMembers] = useState([]);
   const [memberEmail, setMemberEmail] = useState('');
-  const [assignedMembers, setAssignedMembers] = useState([]);
+  const [memberHourlyRate, setMemberHourlyRate] = useState('');
   const [tasks, setTasks] = useState([]);
   const [taskName, setTaskName] = useState('');
+  const [taskDescription, setTaskDescription] = useState('');
+  const [taskStartDate, setTaskStartDate] = useState(new Date());
+  const [taskEndDate, setTaskEndDate] = useState(new Date());
+  const [taskAssignedMembers, setTaskAssignedMembers] = useState([]);
 
-  const handleAssignMember = () => {
-    if (memberEmail) {
-      setAssignedMembers([...assignedMembers, memberEmail]);
-      setMemberEmail('');
+  const handleAddMember = () => {
+    if (memberEmail.trim() === '' || memberHourlyRate.trim() === '') {
+      return;
     }
+
+    const member = {
+      email: memberEmail,
+      hourlyRate: parseFloat(memberHourlyRate),
+    };
+
+    if (members.some((m) => m.email === member.email)) {
+      return;
+    }
+
+    setMembers((prevMembers) => [...prevMembers, member]);
+    setMemberEmail('');
+    setMemberHourlyRate('');
   };
 
   const handleAddTask = () => {
-    if (taskName) {
-      setTasks([...tasks, { id: generateTaskId(), name: taskName, assignedMember: '' }]);
-      setTaskName('');
+    if (taskName.trim() === '') {
+      return;
     }
+
+    const assignedMembersWithHourlyRate = taskAssignedMembers.map((memberEmail) => {
+      const member = members.find((m) => m.email === memberEmail);
+      return {
+        email: memberEmail,
+        hourlyRate: member ? member.hourlyRate : 0,
+      };
+    });
+
+    const task = {
+      id: tasks.length + 1,
+      name: taskName,
+      description: taskDescription,
+      startDate: taskStartDate,
+      endDate: taskEndDate,
+      assignedMembers: [...assignedMembersWithHourlyRate],
+      completed: false,
+      completionDateTime: null,
+      hoursWorked: 0,
+    };
+
+    setTasks((prevTasks) => [...prevTasks, task]);
+    setTaskName('');
+    setTaskDescription('');
+    setTaskStartDate(new Date());
+    setTaskEndDate(new Date());
+    setTaskAssignedMembers([]);
   };
 
   const handleCreateProject = async () => {
-    try {
-      const projectRef = firebase.firestore().collection('projects');
-      const newProject = {
-        title: projectTitle,
-        assignedMembers: assignedMembers,
-        tasks: tasks,
-      };
-      await projectRef.add(newProject);
+    if (projectName.trim() === '') {
+      return;
+    }
 
-      setProjectTitle('');
-      setAssignedMembers([]);
+    try {
+      const currentUser = firebase.auth().currentUser;
+
+      const projectData = {
+        name: projectName,
+        createdBy: currentUser.email,
+        leader: currentUser.uid,
+        members: [...members],
+        tasks: [...tasks],
+        completed: false,
+        totalHoursWorked: 0,
+        totalCost: 0,
+      };
+
+      const projectRef = await firebase.firestore().collection('projects').add(projectData);
+
+      console.log('Project created:', projectRef.id);
+
+      setProjectName('');
+      setMembers([]);
+      setMemberEmail('');
+      setMemberHourlyRate('');
       setTasks([]);
+      setTaskName('');
+      setTaskDescription('');
+      setTaskStartDate(new Date());
+      setTaskEndDate(new Date());
+      setTaskAssignedMembers([]);
 
       navigation.navigate('ProjectList');
     } catch (error) {
@@ -43,77 +109,128 @@ const ProjectCreateScreen = ({ navigation }) => {
     }
   };
 
-  const generateTaskId = () => {
-    return Math.random().toString(36).substr(2, 9);
+  const renderMembers = () => {
+    if (members.length === 0) {
+      return <Text>No members added.</Text>;
+    }
+
+    return members.map((member) => (
+      <Text key={member.email} style={styles.member}>
+        {`${member.email} - $${member.hourlyRate}/hr`}
+      </Text>
+    ));
   };
 
-  const renderTaskItem = ({ item }) => (
-    <View style={styles.taskItem}>
-      <Text style={styles.taskTitle}>{item.name}</Text>
-      <TextInput
-        style={styles.assignedMemberInput}
-        value={item.assignedMember}
-        onChangeText={(text) => handleTaskMemberChange(item.id, text)}
-        placeholder="Assigned Member"
-      />
-    </View>
-  );
+  const renderAssignedMembers = () => {
+    if (taskAssignedMembers.length === 0) {
+      return <Text>No members assigned.</Text>;
+    }
 
-  const handleTaskMemberChange = (taskId, member) => {
-    const updatedTasks = tasks.map((task) =>
-      task.id === taskId ? { ...task, assignedMember: member } : task
-    );
-    setTasks(updatedTasks);
+    return taskAssignedMembers.map((member) => (
+      <Text key={member} style={styles.assignedMember}>
+        {member}
+      </Text>
+    ));
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.heading}>Create Project</Text>
+    <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView style={styles.container} behavior="padding">
+        <ScrollView>
+          <Text style={styles.heading}>Create Project</Text>
 
-      <TextInput
-        style={styles.input}
-        value={projectTitle}
-        onChangeText={setProjectTitle}
-        placeholder="Project Title"
-      />
+          <TextInput
+            style={styles.input}
+            value={projectName}
+            onChangeText={setProjectName}
+            placeholder="Project Name"
+          />
 
-      <View style={styles.assignMemberContainer}>
-        <TextInput
-          style={styles.input}
-          value={memberEmail}
-          onChangeText={setMemberEmail}
-          placeholder="Member Email"
-        />
-        <Button title="Add Member" onPress={handleAssignMember} />
-      </View>
+          <Text style={styles.sectionHeading}>Members</Text>
 
-      <View style={styles.assignedMembersContainer}>
-        <Text style={styles.label}>Assigned Members:</Text>
-        {assignedMembers.map((member, index) => (
-          <Text key={index}>{member}</Text>
-        ))}
-      </View>
+          <View style={styles.memberContainer}>
+            <TextInput
+              style={styles.memberInput}
+              value={memberEmail}
+              onChangeText={setMemberEmail}
+              placeholder="Member Email"
+            />
+            <TextInput
+              style={styles.memberInput}
+              value={memberHourlyRate}
+              onChangeText={setMemberHourlyRate}
+              placeholder="Hourly Rate"
+              keyboardType="numeric"
+            />
+            <Button title="Add Member" onPress={handleAddMember} />
+          </View>
 
-      <View style={styles.taskContainer}>
-        <Text style={styles.label}>Tasks:</Text>
-        <FlatList
-          data={tasks}
-          renderItem={renderTaskItem}
-          keyExtractor={(item) => item.id}
-        />
-        <View style={styles.addTaskContainer}>
+          {renderMembers()}
+
+          <Text style={styles.sectionHeading}>Tasks</Text>
+
           <TextInput
             style={styles.input}
             value={taskName}
             onChangeText={setTaskName}
             placeholder="Task Name"
           />
-          <Button title="Add Task" onPress={handleAddTask} />
-        </View>
-      </View>
 
-      <Button title="Create Project" onPress={handleCreateProject} />
-    </View>
+          <TextInput
+            style={styles.input}
+            value={taskDescription}
+            onChangeText={setTaskDescription}
+            placeholder="Task Description"
+            multiline
+          />
+
+          <View style={styles.datePickerContainer}>
+            <Text>Start Date: </Text>
+            <DateTimePicker
+              value={taskStartDate}
+              mode="date"
+              display="default"
+              onChange={(event, date) => setTaskStartDate(date)}
+            />
+          </View>
+
+          <View style={styles.datePickerContainer}>
+            <Text>End Date: </Text>
+            <DateTimePicker
+              value={taskEndDate}
+              mode="date"
+              display="default"
+              onChange={(event, date) => setTaskEndDate(date)}
+            />
+          </View>
+
+          <View style={styles.memberPickerContainer}>
+            <Text>Assigned Members: </Text>
+            <Picker
+              selectedValue={taskAssignedMembers}
+              onValueChange={(itemValue) => {
+                if (itemValue !== '') {
+                  if (!taskAssignedMembers.includes(itemValue)) {
+                    setTaskAssignedMembers([...taskAssignedMembers, itemValue]);
+                  }
+                }
+              }}
+            >
+              <Picker.Item label="Select a member" value="" />
+              {members.map((member) => (
+                <Picker.Item key={member.email} label={member.email} value={member.email} />
+              ))}
+            </Picker>
+          </View>
+
+          {renderAssignedMembers()}
+
+          <Button title="Add Task" onPress={handleAddTask} />
+
+          <Button title="Create Project" onPress={handleCreateProject} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
@@ -123,52 +240,50 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   heading: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 10,
+    marginTop: 20,
+  },
+  sectionHeading: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 20,
+    marginBottom: 10,
   },
   input: {
-    width: '80%',
     height: 40,
     marginBottom: 10,
     borderWidth: 1,
     borderColor: '#ccc',
     paddingHorizontal: 10,
   },
-  assignMemberContainer: {
+  memberContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  assignedMembersContainer: {
     marginBottom: 10,
   },
-  label: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 5,
+  memberInput: {
+    flex: 1,
+    height: 40,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    paddingHorizontal: 10,
   },
-  taskContainer: {
+  datePickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  memberPickerContainer: {
     marginBottom: 20,
   },
-  taskItem: {
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',  
+  member: {
+    marginBottom: 5,
   },
-  taskTitle: {
-    flex: 1,
-    marginRight: 10,
-  },
-  assignedMemberInput: {
-    flex: 1,
-    height: 40,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    paddingHorizontal: 10,
-  },
-  addTaskContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  assignedMember: {
+    marginBottom: 5,
   },
 });
 
