@@ -80,7 +80,7 @@ const ProjectCreateScreen = ({ navigation }) => {
       const projectData = {
         name: projectName,
         createdBy: currentUser.email,
-        leader: currentUser.uid,
+        leader: currentUser.email,
         members: [...members],
         tasks: [...tasks],
         completed: false,

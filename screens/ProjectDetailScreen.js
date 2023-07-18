@@ -160,7 +160,7 @@ const ProjectDetailScreen = ({ route }) => {
       {project && (
         <View style={styles.projectContainer}>
           <Text style={styles.projectTitle}>{project.name}</Text>
-          <Text style={styles.projectInfo}>Start Date: {startDate}</Text>
+          
           <Text style={styles.projectInfo}>End Date: {endDate}</Text>
 
           <Text style={styles.sectionHeading}>Tasks:</Text>

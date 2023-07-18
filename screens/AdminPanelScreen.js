@@ -1,27 +1,54 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import firebase from '../firebase';
 
-const AdminPanelScreen = ({ navigation }) => {
+const AdminPanelScreen = () => {
   const [projects, setProjects] = useState([]);
 
   useEffect(() => {
-    const unsubscribe = firebase
-      .firestore()
-      .collection('projects')
+    const unsubscribe = firebase.firestore().collection('projects')
       .onSnapshot((snapshot) => {
-        const projectsData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-        setProjects(projectsData);
+        const projectList = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setProjects(projectList);
       });
 
     return () => unsubscribe();
   }, []);
 
+  const navigation = useNavigation();
+
   const handleAddProject = () => {
     navigation.navigate('CreateProject');
+  };
+
+  const handleDeleteProject = (projectId) => {
+    Alert.alert(
+      'Delete Project',
+      'Are you sure you want to delete this project?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            const projectRef = firebase.firestore().collection('projects').doc(projectId);
+
+            projectRef.delete()
+              .then(() => {
+                console.log('Project deleted successfully');
+              })
+              .catch(error => {
+                console.log('Error deleting project:', error);
+              });
+          },
+        },
+      ],
+      { cancelable: true },
+    );
   };
 
   const renderProjectItem = ({ item }) => {
@@ -33,6 +60,12 @@ const AdminPanelScreen = ({ navigation }) => {
         <Text style={styles.projectTitle}>{item.title}</Text>
         <Text style={styles.projectLeader}>Leader: {item.leader}</Text>
         <Text style={styles.projectStatus}>{item.completed ? 'Completed' : 'In Progress'}</Text>
+        <TouchableOpacity
+          style={styles.deleteProjectButton}
+          onPress={() => handleDeleteProject(item.id)}
+        >
+          <Text style={styles.deleteProjectButtonText}>Delete Project</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
     );
   };
@@ -41,12 +74,16 @@ const AdminPanelScreen = ({ navigation }) => {
     <View style={styles.container}>
       <Text style={styles.heading}>Admin Panel</Text>
 
-      <FlatList
-        data={projects}
-        keyExtractor={(item) => item.id}
-        renderItem={renderProjectItem}
-        contentContainerStyle={styles.projectList}
-      />
+      {projects.length > 0 ? (
+        <FlatList
+          data={projects}
+          renderItem={renderProjectItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.projectList}
+        />
+      ) : (
+        <Text style={styles.noProjectsText}>No projects available.</Text>
+      )}
 
       <TouchableOpacity style={styles.addButton} onPress={handleAddProject}>
         <Text style={styles.addButtonText}>Add Project</Text>
@@ -89,6 +126,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#888',
   },
+  deleteProjectButton: {
+    marginTop: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#FF0000',
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  },
+  deleteProjectButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
   addButton: {
     height: 40,
     justifyContent: 'center',
@@ -100,6 +150,11 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  noProjectsText: {
+    marginTop: 20,
+    fontSize: 16,
+    textAlign: 'center',
   },
 });
 
